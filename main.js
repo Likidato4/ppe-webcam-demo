@@ -17,8 +17,8 @@ let animationId = null;
 let isRunning = false;
 let isLoadingModel = false;
 
-const CONFIDENCE_THRESHOLD = 0.1;
-const MAX_PREDICTIONS_TO_SHOW = 6;
+const CONFIDENCE_THRESHOLD = 0.0;
+const MAX_PREDICTIONS_TO_SHOW = 8;
 
 const MODEL_CONFIG = {
   publishable_key: "rf_y6gXGN9vlnZWxkTtzuThRNaBaQe2",
@@ -79,7 +79,7 @@ async function loadModel() {
 
   try {
     isLoadingModel = true;
-    setStatus("Loading model...", "warning");
+    setStatus("Loading PPE model...", "warning");
 
     model = await roboflow
       .auth({
@@ -90,14 +90,14 @@ async function loadModel() {
         version: MODEL_CONFIG.version
       });
 
-    console.log("Model loaded:", model);
+    console.log("PPE model loaded:", model);
     setStatus("Model loaded. Ready for webcam.", "default");
     return model;
   } catch (error) {
     console.error("Model loading error:", error);
     setStatus("Failed to load model.", "warning");
     showEmptyState(
-      "The model could not be loaded. Check your Roboflow API key, model ID, and version."
+      "The model could not be loaded. Check your publishable key, model slug, and version."
     );
     throw error;
   } finally {
@@ -110,28 +110,40 @@ function resizeCanvasToVideo() {
   canvas.height = video.videoHeight || 720;
 }
 
+function getPredictionArray(rawPredictions) {
+  if (Array.isArray(rawPredictions)) return rawPredictions;
+  if (Array.isArray(rawPredictions?.predictions)) return rawPredictions.predictions;
+  return [];
+}
+
 function normalizePredictions(predictions) {
   if (!Array.isArray(predictions)) return [];
 
   return predictions
-    .filter((pred) => typeof pred.confidence === "number")
+    .filter((pred) => pred && typeof pred.confidence === "number")
     .sort((a, b) => b.confidence - a.confidence)
     .filter((pred) => pred.confidence >= CONFIDENCE_THRESHOLD);
 }
 
-function renderPredictions(predictions) {
+function renderPredictions(predictions, rawCount = 0) {
+  updateSummary(predictions);
+
   if (!predictions.length) {
-    showEmptyState("Model is live, but no objects are currently detected.");
+    predictionList.innerHTML = `
+      <div class="empty-state">
+        Model is live, but no PPE-related objects are currently detected.
+        <br><br>
+        <small>Raw detections: ${rawCount}</small>
+      </div>
+    `;
     return;
   }
-
-  updateSummary(predictions);
 
   const displayPredictions = predictions.slice(0, MAX_PREDICTIONS_TO_SHOW);
 
   predictionList.innerHTML = displayPredictions
     .map((pred) => {
-      const confidence = (pred.confidence * 100).toFixed(1);
+      const confidence = ((pred.confidence || 0) * 100).toFixed(1);
       return `
         <div class="prediction-item">
           <div class="prediction-row">
@@ -164,7 +176,7 @@ function drawPredictions(predictions) {
       typeof pred.width === "number" &&
       typeof pred.height === "number"
     ) {
-      x = canvas.width - (pred.x + pred.width / 2);
+      x = pred.x - pred.width / 2;
       y = pred.y - pred.height / 2;
       width = pred.width;
       height = pred.height;
@@ -175,10 +187,20 @@ function drawPredictions(predictions) {
       typeof pred.bbox.width === "number" &&
       typeof pred.bbox.height === "number"
     ) {
-      x = canvas.width - (pred.bbox.x + pred.bbox.width / 2);
+      x = pred.bbox.x - pred.bbox.width / 2;
       y = pred.bbox.y - pred.bbox.height / 2;
       width = pred.bbox.width;
       height = pred.bbox.height;
+    } else if (
+      typeof pred.left === "number" &&
+      typeof pred.top === "number" &&
+      typeof pred.width === "number" &&
+      typeof pred.height === "number"
+    ) {
+      x = pred.left;
+      y = pred.top;
+      width = pred.width;
+      height = pred.height;
     } else {
       return;
     }
@@ -218,19 +240,16 @@ async function detectFrame() {
 
   try {
     const rawPredictions = await model.detect(video);
-    console.log("RAW PREDICTIONS:", rawPredictions);
+    console.log("RAW PPE PREDICTIONS:", rawPredictions);
 
-    const predictionArray = Array.isArray(rawPredictions)
-      ? rawPredictions
-      : rawPredictions?.predictions || [];
-
+    const predictionArray = getPredictionArray(rawPredictions);
     const predictions = normalizePredictions(predictionArray);
 
-    console.log("FILTERED PREDICTIONS:", predictions);
+    console.log("NORMALIZED PPE PREDICTIONS:", predictions);
 
     drawPredictions(predictions);
-    renderPredictions(predictions);
-    setStatus("Live inference active", "live");
+    renderPredictions(predictions, predictionArray.length);
+    setStatus(`Live PPE inference active (${predictionArray.length} raw)`, "live");
   } catch (error) {
     console.error("Inference error:", error);
     setStatus("Inference error. Check model settings.", "warning");
@@ -268,7 +287,7 @@ async function startCamera() {
 
     isRunning = true;
     setStatus("Webcam connected. Starting inference...", "live");
-    showEmptyState("Scanning for detections...");
+    showEmptyState("Scanning for PPE detections...");
 
     detectFrame();
   } catch (error) {
