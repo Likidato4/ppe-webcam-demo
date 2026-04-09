@@ -43,15 +43,19 @@ function setButtons({ startDisabled, stopDisabled }) {
 }
 
 function updateSummary(predictions = []) {
-  detectionCountEl.textContent = predictions.length;
-
-  if (!predictions.length) {
-    topConfidenceEl.textContent = "0%";
-    return;
+  if (detectionCountEl) {
+    detectionCountEl.textContent = predictions.length;
   }
 
-  const highest = Math.max(...predictions.map((p) => p.confidence || 0));
-  topConfidenceEl.textContent = `${(highest * 100).toFixed(1)}%`;
+  if (topConfidenceEl) {
+    if (!predictions.length) {
+      topConfidenceEl.textContent = "0%";
+      return;
+    }
+
+    const highest = Math.max(...predictions.map((p) => p.confidence || 0));
+    topConfidenceEl.textContent = `${(highest * 100).toFixed(1)}%`;
+  }
 }
 
 function showEmptyState(message) {
@@ -75,7 +79,7 @@ async function loadModel() {
 
   try {
     isLoadingModel = true;
-    setStatus("Loading PPE model...", "warning");
+    setStatus("Loading model...", "warning");
 
     model = await roboflow
       .auth({
@@ -92,7 +96,7 @@ async function loadModel() {
     console.error("Model loading error:", error);
     setStatus("Failed to load model.", "warning");
     showEmptyState(
-      "The PPE model could not be loaded. Check your Roboflow API key, model ID, and version."
+      "The model could not be loaded. Check your Roboflow API key, model ID, and version."
     );
     throw error;
   } finally {
@@ -116,7 +120,7 @@ function normalizePredictions(predictions) {
 
 function renderPredictions(predictions) {
   if (!predictions.length) {
-    showEmptyState("Model is live, but no PPE objects are currently detected.");
+    showEmptyState("Model is live, but no objects are currently detected.");
     return;
   }
 
@@ -200,7 +204,7 @@ async function detectFrame() {
 
     drawPredictions(predictions);
     renderPredictions(predictions);
-    setStatus("Live PPE inference active", "live");
+    setStatus("Live inference active", "live");
   } catch (error) {
     console.error("Inference error:", error);
     setStatus("Inference error. Check model settings.", "warning");
@@ -238,7 +242,7 @@ async function startCamera() {
 
     isRunning = true;
     setStatus("Webcam connected. Starting inference...", "live");
-    showEmptyState("Scanning for PPE detections...");
+    showEmptyState("Scanning for detections...");
 
     detectFrame();
   } catch (error) {
@@ -291,4 +295,4 @@ startBtn.addEventListener("click", startCamera);
 stopBtn.addEventListener("click", () => stopCamera(true));
 
 setButtons({ startDisabled: false, stopDisabled: true });
-showEmptyState("No predictions yet. Start the webcam to begin PPE inference.");
+showEmptyState("No predictions yet. Start the webcam to begin inference.");
