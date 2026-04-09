@@ -1,0 +1,573 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI PPE (Personal Protective Equipment) Demo</title>
+
+  <script src="https://cdn.roboflow.com/0.2.26/roboflow.js"></script>
+
+  <style>
+    :root {
+      --bg: #08101d;
+      --bg-soft: #0f172a;
+      --panel: rgba(15, 23, 42, 0.78);
+      --panel-border: rgba(148, 163, 184, 0.18);
+      --text: #e5eefb;
+      --muted: #94a3b8;
+      --accent: #60a5fa;
+      --accent-2: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+      --radius: 22px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+      color: var(--text);
+      font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(96, 165, 250, 0.16), transparent 28%),
+        radial-gradient(circle at top right, rgba(34, 197, 94, 0.12), transparent 24%),
+        linear-gradient(180deg, #0b1020 0%, #09101d 100%);
+    }
+
+    body {
+      padding: 32px 20px 56px;
+    }
+
+    .page {
+      max-width: 1260px;
+      margin: 0 auto;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 24px;
+      margin-bottom: 28px;
+      align-items: stretch;
+    }
+
+    .hero-card,
+    .info-card,
+    .viewer-card,
+    .prediction-card {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+
+    .hero-card,
+    .info-card,
+    .prediction-card {
+      padding: 28px;
+    }
+
+    .viewer-card {
+      padding: 18px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+      color: var(--accent);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      box-shadow: 0 0 18px rgba(96, 165, 250, 0.55);
+    }
+
+    h1 {
+      margin: 0 0 14px;
+      font-size: clamp(2rem, 4vw, 3.4rem);
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+    }
+
+    .hero p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.75;
+      max-width: 60ch;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 24px;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+      border-radius: 14px;
+      padding: 14px 18px;
+      font-size: 0.96rem;
+      font-weight: 700;
+      transition: transform 0.18s ease, opacity 0.18s ease, background 0.18s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      color: white;
+    }
+
+    .btn-secondary {
+      background: rgba(148, 163, 184, 0.12);
+      color: var(--text);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+    }
+
+    .meta-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+
+    .meta-chip {
+      border-radius: 999px;
+      padding: 10px 14px;
+      font-size: 0.86rem;
+      color: var(--muted);
+      background: rgba(148, 163, 184, 0.08);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+    }
+
+    .panel-title {
+      margin: 0 0 6px;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    .panel-subtitle {
+      margin: 0 0 18px;
+      color: var(--muted);
+      line-height: 1.65;
+      font-size: 0.92rem;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .stat {
+      padding: 16px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+    }
+
+    .stat-label {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .stat-value {
+      font-size: 1.02rem;
+      font-weight: 700;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1.35fr 0.65fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    .viewer-topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 6px 6px 16px;
+      flex-wrap: wrap;
+    }
+
+    .viewer-title {
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    .viewer-subtitle {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.1);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      font-size: 0.9rem;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .status-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: #64748b;
+    }
+
+    .status-live .status-indicator {
+      background: var(--accent-2);
+      box-shadow: 0 0 16px rgba(34, 197, 94, 0.7);
+    }
+
+    .status-warning .status-indicator {
+      background: var(--warning);
+      box-shadow: 0 0 16px rgba(245, 158, 11, 0.55);
+    }
+
+    .video-shell {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      overflow: hidden;
+      border-radius: 20px;
+      background:
+        linear-gradient(135deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.95));
+      border: 1px solid rgba(148, 163, 184, 0.14);
+    }
+
+    video,
+    canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: inherit;
+    }
+
+    video {
+      transform: scaleX(-1);
+    }
+
+    .video-placeholder {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      text-align: center;
+      color: var(--muted);
+      z-index: 2;
+      background:
+        radial-gradient(circle at center, rgba(96, 165, 250, 0.12), transparent 45%);
+    }
+
+    .video-placeholder.hidden {
+      display: none;
+    }
+
+    .placeholder-box {
+      max-width: 520px;
+    }
+
+    .placeholder-icon {
+      width: 76px;
+      height: 76px;
+      margin: 0 auto 16px;
+      border-radius: 22px;
+      display: grid;
+      place-items: center;
+      background: rgba(96, 165, 250, 0.12);
+      border: 1px solid rgba(96, 165, 250, 0.22);
+      font-size: 2rem;
+    }
+
+    .placeholder-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .placeholder-text {
+      line-height: 1.7;
+      font-size: 0.95rem;
+    }
+
+    .prediction-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: 520px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .prediction-item,
+    .empty-state,
+    .summary-card {
+      border-radius: 18px;
+      padding: 16px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .summary-label {
+      color: var(--muted);
+      font-size: 0.8rem;
+      margin-bottom: 6px;
+    }
+
+    .summary-value {
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    .prediction-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .prediction-label {
+      font-weight: 700;
+      font-size: 0.96rem;
+      text-transform: capitalize;
+    }
+
+    .prediction-score {
+      font-size: 0.9rem;
+      color: var(--accent-2);
+      font-weight: 700;
+    }
+
+    .progress {
+      width: 100%;
+      height: 10px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.12);
+    }
+
+    .progress-bar {
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #3b82f6, #22c55e);
+    }
+
+    footer {
+      margin-top: 24px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 980px) {
+      .hero,
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 20px 14px 40px;
+      }
+
+      .hero-card,
+      .info-card,
+      .viewer-card,
+      .prediction-card {
+        border-radius: 18px;
+      }
+
+      .hero-card,
+      .info-card,
+      .prediction-card {
+        padding: 20px;
+      }
+
+      .viewer-card {
+        padding: 14px;
+      }
+
+      .info-grid,
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+
+      h1 {
+        font-size: 2rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <div class="hero-card">
+        <div class="eyebrow">
+          <span class="dot"></span>
+          Computer Vision Portfolio
+        </div>
+
+        <h1>Real-Time PPE Webcam Inference Demo</h1>
+
+        <p>
+          This browser-based AI demo allows users to activate their device camera
+          and receive live personal protective equipment predictions directly in
+          the web app.
+        </p>
+
+        <div class="hero-actions">
+          <button class="btn-primary" id="startBtn">Enable Webcam</button>
+          <button class="btn-secondary" id="stopBtn">Stop Camera</button>
+        </div>
+
+        <div class="meta-row">
+          <div class="meta-chip">Live Browser Inference</div>
+          <div class="meta-chip">Client Device Webcam</div>
+          
+        </div>
+      </div>
+
+      <aside class="info-card">
+        
+        <p class="panel-subtitle">
+          PPE detection demo powered by a computer vision model,
+          optimized for live object detection in the browser.
+        </p>
+
+        <div class="info-grid">
+          <div class="stat">
+            <div class="stat-label">Inference Source</div>
+            <div class="stat-value">User Webcam</div>
+          </div>
+
+          <div class="stat">
+            <div class="stat-label">Model Type</div>
+            <div class="stat-value">PPE Detection</div>
+          </div>
+
+          <div class="stat">
+            <div class="stat-label">Use Case</div>
+            <div class="stat-value">Live Safety Monitoring</div>
+          </div>
+
+          
+        </div>
+      </aside>
+    </section>
+
+    <section class="main-grid">
+      <div class="viewer-card">
+        <div class="viewer-topbar">
+          <div>
+            <div class="viewer-title">Live Camera View</div>
+            <div class="viewer-subtitle">
+              Predictions are drawn over the video stream in real time.
+            </div>
+          </div>
+
+          <div class="status-pill" id="statusPill">
+            <span class="status-indicator"></span>
+            <span id="statusText">Waiting for camera access</span>
+          </div>
+        </div>
+
+        <div class="video-shell">
+          <div class="video-placeholder" id="videoPlaceholder">
+            <div class="placeholder-box">
+              <div class="placeholder-icon">📷</div>
+              <div class="placeholder-title">Webcam inactive</div>
+              <div class="placeholder-text">
+                Click <strong>Enable Webcam</strong> to allow camera access and
+                start live PPE predictions in this portfolio demo.
+              </div>
+            </div>
+          </div>
+
+          <video id="video" autoplay playsinline muted></video>
+          <canvas id="canvas"></canvas>
+        </div>
+      </div>
+
+      <aside class="prediction-card">
+        <h2 class="panel-title">Prediction Results</h2>
+        <p class="panel-subtitle">
+          Top detections and confidence scores will appear here while the model is active.
+        </p>
+
+        <div class="summary-grid">
+          <div class="summary-card">
+            <div class="summary-label">Detections</div>
+            <div class="summary-value" id="detectionCount">0</div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-label">Top Confidence</div>
+            <div class="summary-value" id="topConfidence">0%</div>
+          </div>
+        </div>
+
+        <div class="prediction-list" id="predictionList">
+          <div class="empty-state">
+            No predictions yet. Start the webcam to begin inference.
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
+  
