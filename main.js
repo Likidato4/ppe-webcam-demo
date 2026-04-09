@@ -17,7 +17,7 @@ let animationId = null;
 let isRunning = false;
 let isLoadingModel = false;
 
-const CONFIDENCE_THRESHOLD = 0.35;
+const CONFIDENCE_THRESHOLD = 0.1;
 const MAX_PREDICTIONS_TO_SHOW = 6;
 
 const MODEL_CONFIG = {
@@ -90,6 +90,7 @@ async function loadModel() {
         version: MODEL_CONFIG.version
       });
 
+    console.log("Model loaded:", model);
     setStatus("Model loaded. Ready for webcam.", "default");
     return model;
   } catch (error) {
@@ -114,8 +115,8 @@ function normalizePredictions(predictions) {
 
   return predictions
     .filter((pred) => typeof pred.confidence === "number")
-    .filter((pred) => pred.confidence >= CONFIDENCE_THRESHOLD)
-    .sort((a, b) => b.confidence - a.confidence);
+    .sort((a, b) => b.confidence - a.confidence)
+    .filter((pred) => pred.confidence >= CONFIDENCE_THRESHOLD);
 }
 
 function renderPredictions(predictions) {
@@ -134,7 +135,7 @@ function renderPredictions(predictions) {
       return `
         <div class="prediction-item">
           <div class="prediction-row">
-            <div class="prediction-label">${pred.class}</div>
+            <div class="prediction-label">${pred.class || "object"}</div>
             <div class="prediction-score">${confidence}%</div>
           </div>
           <div class="progress">
@@ -152,21 +153,38 @@ function drawPredictions(predictions) {
   if (!predictions.length) return;
 
   predictions.forEach((pred) => {
+    let x;
+    let y;
+    let width;
+    let height;
+
     if (
-      typeof pred.x !== "number" ||
-      typeof pred.y !== "number" ||
-      typeof pred.width !== "number" ||
-      typeof pred.height !== "number"
+      typeof pred.x === "number" &&
+      typeof pred.y === "number" &&
+      typeof pred.width === "number" &&
+      typeof pred.height === "number"
     ) {
+      x = canvas.width - (pred.x + pred.width / 2);
+      y = pred.y - pred.height / 2;
+      width = pred.width;
+      height = pred.height;
+    } else if (
+      pred.bbox &&
+      typeof pred.bbox.x === "number" &&
+      typeof pred.bbox.y === "number" &&
+      typeof pred.bbox.width === "number" &&
+      typeof pred.bbox.height === "number"
+    ) {
+      x = canvas.width - (pred.bbox.x + pred.bbox.width / 2);
+      y = pred.bbox.y - pred.bbox.height / 2;
+      width = pred.bbox.width;
+      height = pred.bbox.height;
+    } else {
       return;
     }
 
-    const x = canvas.width - (pred.x + pred.width / 2);
-    const y = pred.y - pred.height / 2;
-    const width = pred.width;
-    const height = pred.height;
-    const confidence = (pred.confidence * 100).toFixed(1);
-    const label = `${pred.class} ${confidence}%`;
+    const confidence = ((pred.confidence || 0) * 100).toFixed(1);
+    const label = `${pred.class || "object"} ${confidence}%`;
 
     ctx.strokeStyle = "#22c55e";
     ctx.lineWidth = 3;
@@ -200,7 +218,15 @@ async function detectFrame() {
 
   try {
     const rawPredictions = await model.detect(video);
-    const predictions = normalizePredictions(rawPredictions);
+    console.log("RAW PREDICTIONS:", rawPredictions);
+
+    const predictionArray = Array.isArray(rawPredictions)
+      ? rawPredictions
+      : rawPredictions?.predictions || [];
+
+    const predictions = normalizePredictions(predictionArray);
+
+    console.log("FILTERED PREDICTIONS:", predictions);
 
     drawPredictions(predictions);
     renderPredictions(predictions);
