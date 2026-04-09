@@ -23,7 +23,7 @@ const MAX_PREDICTIONS_TO_SHOW = 6;
 const MODEL_CONFIG = {
   publishable_key: "rf_y6gXGN9vlnZWxkTtzuThRNaBaQe2",
   model: "projectdrone2-y6jvn",
-  version: 18
+  version: 19
 };
 
 function setStatus(message, mode = "default") {
